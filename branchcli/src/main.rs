@@ -4,12 +4,16 @@ use clap::Parser;
 use clap::Subcommand;
 use memmap2::{Advice, Mmap};
 use branchlib::predictor::BranchPredictor;
-use branchlib::simulator::Simulator;
+use branchlib::simulator::{SimulationResults, Simulator, Trainer};
 use branchlib::strategies::always::AlwaysTaken;
+use branchlib::strategies::gshare::GShare;
 use branchlib::strategies::twobit::TwoBit;
+use rayon::prelude::*;
+use branchlib::strategies::BranchPredictionTrainer;
+use branchlib::strategies::profiled::StaticPredictorTrainer;
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about = "Branch prediction simulator")]
 pub struct Args {
     #[arg()]
     trace: PathBuf,
@@ -20,14 +24,17 @@ pub struct Args {
 
 #[derive(Subcommand, Clone, Debug)]
 enum Strategies {
-    #[command(about, name = "always")]
+    #[command(about = "Static branch predictor which assumes a branch is always taken", name = "always")]
     Always,
-    #[command(about = "Two-bit predictor with a given table size", name = "tb")]
+    #[command(about = "Two-bit predictor with a given table size", name = "twobit")]
     TwoBit { tablesize: usize },
     #[command(about = "GShare predictor", name = "gshare")]
-    GShare,
-    #[command(about = "Branch predictor based on profiling", name = "profile")]
-    Profiled,
+    GShare { tablesize: usize, address_bits: u64, history_bits: u64 },
+    #[command(about = "GShare predictor, best accuracy from all variations of address and history bits", name = "gsharebest")]
+    GShareBest { tablesize: usize },
+    #[command(about = "Static branch predictor which profiles the program to find the most common path for various branches, \n\
+    then builds a table for the most common paths for various branches", name = "profiled")]
+    Profiled { tablesize: usize },
 }
 
 macro_rules! simulate {
@@ -56,25 +63,41 @@ fn main() -> Result<(), String> {
         Strategies::Always => {
             simulate!(AlwaysTaken::new(), data)
         }
-        Strategies::TwoBit { tablesize: 512 } => {
-            simulate!(TwoBit::<512>::new(), data)
+        Strategies::TwoBit { tablesize } => {
+            simulate!(TwoBit::new(tablesize), data)
         }
-        Strategies::TwoBit { tablesize: 1024 } => {
-            simulate!(TwoBit::<1024>::new(), data)
+        Strategies::GShare {
+            tablesize, address_bits, history_bits
+        } => {
+            simulate!(GShare::new(tablesize, address_bits, history_bits), data)
         }
-        Strategies::TwoBit { tablesize: 2048 } => {
-            simulate!(TwoBit::<2048>::new(), data)
+        Strategies::GShareBest {
+            tablesize
+        } => {
+            gshare_best(tablesize, data)
         }
-        Strategies::TwoBit { tablesize: 4096 } => {
-            simulate!(TwoBit::<4096>::new(), data)
+        Strategies::Profiled { tablesize } => {
+            let mut trainer = Trainer::new(StaticPredictorTrainer::new(tablesize));
+            trainer.train(data);
+            simulate!(trainer.get_predictor(), data)
         }
-        Strategies::TwoBit { .. } => {
-            return Err(format!("Twobit is only supported for table sizes of 512, 1024, 2048, or 4096"));
-        }
-        Strategies::GShare => { todo!() }
-        Strategies::Profiled => { todo!() }
     };
-    println!("Total Lines: {}, Hits: {}, Percentage: {}", results.total_hits, results.total_hits, results.total_hits as f64 / results.total_predictions as f64);
+    println!("Total Lines: {}, Hits: {}, Percentage: {}", results.total_predictions, results.total_hits, (results.total_hits as f64 / results.total_predictions as f64) * 100.0);
     Ok(())
 }
 
+fn gshare_best(tablesize: usize, data: &[u8]) -> SimulationResults {
+    let x = tablesize.trailing_zeros() as u64;
+    let mut sims: Vec<Simulator<GShare>> = Vec::new();
+    for address_bits in 0..x {
+        for history_bits in 0..x {
+            sims.push(Simulator::new(BranchPredictor::new(GShare::new(tablesize, address_bits, history_bits))));
+        }
+    }
+    // Process all configurations in parallel. Accessing various parts of the mmap in parallel
+    // doesn't seem to cause any major performance issues
+    sims.par_iter_mut()
+        .map(|sim| sim.simulate(data).clone())
+        .max_by(|a, b| a.total_hits.cmp(&b.total_hits))
+        .unwrap()
+}

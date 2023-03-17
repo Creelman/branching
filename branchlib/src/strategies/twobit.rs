@@ -8,24 +8,30 @@ const STATE_MACHINE: [[u8; 3]; 4] = [
     [1, 2, 3]
 ];
 
-pub struct TwoBit<const T: usize> {
-    states: [u8; T]
+pub struct TwoBit {
+    size: usize,
+    states: Vec<u8>
 }
 
-impl <const T: usize> TwoBit<T> {
-    pub fn new() -> Self {
+impl TwoBit {
+    pub fn new(size: usize) -> Self {
         Self {
-            states: [0; T]
+            size,
+            states: vec![0; size]
         }
     }
 }
 
-impl <const T: usize> BranchPredictionStrategy for TwoBit<T> {
+impl BranchPredictionStrategy for TwoBit {
     fn predict_and_update(&mut self, program_counter: u64, _target_address: u64, actual_result: bool) -> bool {
-        let addressing_bitmask = T - 1;
+        // Constant optimised away
+        let addressing_bitmask = self.size - 1;
         let program_counter = program_counter as usize;
+        // Get the current state
         let current_state_info = STATE_MACHINE[self.states[program_counter & addressing_bitmask] as usize];
+        // Update the current state for this branch based on actual value
         self.states[program_counter & (addressing_bitmask as usize)] = current_state_info[1 + actual_result as usize];
+        // Return prediction
         current_state_info[0] == 1
     }
 }

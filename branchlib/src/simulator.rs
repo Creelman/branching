@@ -1,6 +1,6 @@
 use hex_simd::Out;
 use crate::predictor::BranchPredictor;
-use crate::strategies::BranchPredictionStrategy;
+use crate::strategies::{BranchPredictionStrategy, BranchPredictionTrainer};
 
 const PROGRAM_COUNTER_OFFSET: usize = 0;
 const ADDRESS_LENGTH: usize = 16;
@@ -12,7 +12,7 @@ const IS_DIRECT_OFFSET: usize = BRANCH_KIND_OFFSET + BINARY_OFFSET + SEPARATOR_L
 const IS_CONDITIONAL_OFFSET: usize = IS_DIRECT_OFFSET + BINARY_OFFSET + SEPARATOR_LENGTH;
 const IS_TAKEN_OFFSET: usize = IS_CONDITIONAL_OFFSET + BINARY_OFFSET + SEPARATOR_LENGTH;
 const LINE_ENDING_LENGTH: usize = 1;
-const LINE_SIZE: usize = IS_TAKEN_OFFSET + BINARY_OFFSET + LINE_ENDING_LENGTH;
+pub const LINE_SIZE: usize = IS_TAKEN_OFFSET + BINARY_OFFSET + LINE_ENDING_LENGTH;
 
 pub struct Simulator<S: BranchPredictionStrategy> {
     predictor: BranchPredictor<S>,
@@ -33,7 +33,7 @@ impl<S: BranchPredictionStrategy> Simulator<S> {
         }
     }
 
-    pub fn simulate(&mut self, trace: &[u8]) {
+    pub fn simulate(&mut self, trace: &[u8]) -> &SimulationResults {
         // Check we're line-aligned
         debug_assert_eq!(trace.len() % LINE_SIZE, 0);
         let mut offset: usize = 0;
@@ -53,10 +53,45 @@ impl<S: BranchPredictionStrategy> Simulator<S> {
             }
             offset += LINE_SIZE;
         }
+        &self.results
     }
 
     pub fn get_results(&self) -> &SimulationResults {
         &self.results
+    }
+}
+
+pub struct Trainer<T: BranchPredictionTrainer> {
+    trainer: T
+}
+
+impl <T: BranchPredictionTrainer> Trainer<T> {
+    pub fn new(trainer: T) -> Self {
+        Self {
+            trainer
+        }
+    }
+
+    pub fn train(&mut self, trace: &[u8]) {
+        // Check we're line-aligned
+        debug_assert_eq!(trace.len() % LINE_SIZE, 0);
+        let mut offset: usize = 0;
+        while offset < trace.len() {
+            let line = &trace[offset..offset + LINE_SIZE];
+            debug_assert_eq!(trace[LINE_SIZE - 1], b'\n');
+            let program_counter = parse_address((&line[PROGRAM_COUNTER_OFFSET..PROGRAM_COUNTER_OFFSET + ADDRESS_LENGTH]).try_into().unwrap());
+            let target_address = parse_address((&line[TARGET_ADDRESS_OFFSET..TARGET_ADDRESS_OFFSET + ADDRESS_LENGTH]).try_into().unwrap());
+            let _branch_kind = line[BRANCH_KIND_OFFSET];
+            let _direct = line[IS_DIRECT_OFFSET] == b'1';
+            let _conditional = line[IS_CONDITIONAL_OFFSET] == b'1';
+            let taken = line[IS_TAKEN_OFFSET] == b'1';
+            self.trainer.add_example(program_counter, target_address, taken);
+            offset += LINE_SIZE;
+        }
+    }
+
+    pub fn get_predictor(self) -> T::Output {
+        self.trainer.to_predictor()
     }
 }
 
