@@ -14,12 +14,13 @@ const IS_TAKEN_OFFSET: usize = IS_CONDITIONAL_OFFSET + BINARY_OFFSET + SEPARATOR
 const LINE_ENDING_LENGTH: usize = 1;
 pub const LINE_SIZE: usize = IS_TAKEN_OFFSET + BINARY_OFFSET + LINE_ENDING_LENGTH;
 
+#[derive(Debug)]
 pub struct Simulator<S: BranchPredictionStrategy> {
     predictor: BranchPredictor<S>,
     results: SimulationResults,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SimulationResults {
     pub total_predictions: u64,
     pub total_hits: u64,

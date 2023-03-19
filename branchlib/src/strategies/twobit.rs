@@ -8,6 +8,7 @@ const STATE_MACHINE: [[u8; 3]; 4] = [
     [1, 2, 3]
 ];
 
+#[derive(Debug)]
 pub struct TwoBit {
     size: usize,
     states: Vec<u8>
@@ -30,7 +31,7 @@ impl BranchPredictionStrategy for TwoBit {
         // Get the current state
         let current_state_info = STATE_MACHINE[self.states[program_counter & addressing_bitmask] as usize];
         // Update the current state for this branch based on actual value
-        self.states[program_counter & (addressing_bitmask as usize)] = current_state_info[1 + actual_result as usize];
+        self.states[program_counter & (addressing_bitmask)] = current_state_info[1 + actual_result as usize];
         // Return prediction
         current_state_info[0] == 1
     }

@@ -1,5 +1,6 @@
 use crate::strategies::{BranchPredictionStrategy, BranchPredictionTrainer};
 
+#[derive(Debug)]
 pub struct TrainedStaticPredictor {
     table: Vec<bool>
 }
@@ -19,7 +20,7 @@ impl StaticPredictorTrainer {
 impl BranchPredictionTrainer for StaticPredictorTrainer {
     type Output = TrainedStaticPredictor;
 
-    fn add_example(&mut self, program_counter: u64, target_address: u64, actual_result: bool) {
+    fn add_example(&mut self, program_counter: u64, _target_address: u64, actual_result: bool) {
         let addr = program_counter as usize & (self.table.len() - 1);
         self.table[addr] += match actual_result {
             true => 1,
@@ -35,7 +36,7 @@ impl BranchPredictionTrainer for StaticPredictorTrainer {
 }
 
 impl BranchPredictionStrategy for TrainedStaticPredictor {
-    fn predict_and_update(&mut self, program_counter: u64, target_address: u64, actual_result: bool) -> bool {
+    fn predict_and_update(&mut self, program_counter: u64, _target_address: u64, _actual_result: bool) -> bool {
         let addr = program_counter as usize & (self.table.len() - 1);
         self.table[addr]
     }

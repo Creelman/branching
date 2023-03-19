@@ -1,6 +1,7 @@
 use crate::strategies::BranchPredictionStrategy;
 
 // This being its own struct was less useful than I'd anticipated
+#[derive(Debug)]
 pub struct BranchPredictor<S: BranchPredictionStrategy> {
     strategy: S,
 }
