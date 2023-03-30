@@ -1,10 +1,7 @@
 [workspace]
 members = [
-    "branchlib",
+    "branchsim",
     "branchcli",
-    "branchanalyse"
+    "branchanalyse",
+    "branchlib",
 ]
-
-[profile.release]
-# Processing can take a while and the program is run many times during analysis,
-# so slightly longer compile times are worth a small speed increase

@@ -28,9 +28,9 @@ impl BranchPredictionTrainer for StaticPredictorTrainer {
         }
     }
 
-    fn to_predictor(self) -> Self::Output {
+    fn to_predictor(&self) -> Self::Output {
         TrainedStaticPredictor {
-            table: self.table.into_iter().map(|a| a >= 0).collect()
+            table: self.table.iter().map(|a| *a >= 0).collect()
         }
     }
 }
