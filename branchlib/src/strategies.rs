@@ -13,5 +13,5 @@ pub trait BranchPredictionTrainer {
     type Output: BranchPredictionStrategy;
 
     fn add_example(&mut self, program_counter: u64, target_address: u64, actual_result: bool);
-    fn to_predictor(self) -> Self::Output;
+    fn to_predictor(&self) -> Self::Output;
 }

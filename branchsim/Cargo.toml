@@ -1,0 +1,11 @@
+[package]
+name = "branchsim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+branchlib = {path = "../branchlib"}
+branchcli = {path = "../branchcli"}
+clap = {version = "4.1.9", features = ["derive"]}
+memmap2 = "0.5.10"
+rayon = "1.7.0"
