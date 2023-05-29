@@ -1,5 +1,4 @@
 use hex_simd::Out;
-use crate::predictor::BranchPredictor;
 use crate::strategies::{BranchPredictionStrategy, BranchPredictionTrainer};
 
 const PROGRAM_COUNTER_OFFSET: usize = 0;
@@ -21,7 +20,7 @@ pub trait Simulator {
 
 #[derive(Debug)]
 pub struct StandardSimulator<S: BranchPredictionStrategy> {
-    predictor: BranchPredictor<S>,
+    predictor: S,
     results: SimulationResults,
 }
 
@@ -38,7 +37,7 @@ impl SimulationResults {
 }
 
 impl<S: BranchPredictionStrategy> StandardSimulator<S> {
-    pub fn new(predictor: BranchPredictor<S>) -> Self {
+    pub fn new(predictor: S) -> Self {
         Self {
             predictor,
             results: SimulationResults::default(),
@@ -127,7 +126,7 @@ impl<T> Simulator for TrainingSplitSimulator<T>
         let training_set = &trace[..split_point];
         let test_set = &trace[split_point..];
         self.train(training_set);
-        self.results = StandardSimulator::new(BranchPredictor::new(self.get_predictor())).simulate(test_set).clone();
+        self.results = StandardSimulator::new(self.get_predictor()).simulate(test_set).clone();
         &self.results
     }
 

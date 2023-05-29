@@ -2,7 +2,6 @@ use std::fs::File;
 use std::path::{PathBuf};
 use clap::Parser;
 use memmap2::{Advice, Mmap};
-use branchlib::predictor::BranchPredictor;
 use branchlib::simulator::{SimulationResults, StandardSimulator, TrainingSplitSimulator};
 use branchlib::strategies::always::AlwaysTaken;
 use branchlib::strategies::gshare::GShare;
@@ -24,7 +23,7 @@ pub struct Args {
 }
 
 fn simulate<T: BranchPredictionStrategy>(strategy: T, data: &[u8]) -> SimulationResults {
-    StandardSimulator::new(BranchPredictor::new(strategy)).simulate(data).clone()
+    StandardSimulator::new(strategy).simulate(data).clone()
 }
 
 fn main() -> Result<(), String> {
@@ -46,9 +45,9 @@ fn main() -> Result<(), String> {
             simulate(TwoBit::new(tablesize), data)
         }
         Strategy::GShare {
-            tablesize, address_bits, history_bits
+            tablesize, history_bits
         } => {
-            simulate(GShare::new(tablesize, history_bits, address_bits), data)
+            simulate(GShare::new(tablesize, history_bits), data)
         }
         Strategy::GShareBest {
             tablesize
@@ -67,10 +66,8 @@ fn main() -> Result<(), String> {
 fn gshare_best(tablesize: usize, data: &[u8]) -> SimulationResults {
     let x = tablesize.trailing_zeros() as u64;
     let mut sims: Vec<StandardSimulator<GShare>> = Vec::new();
-    for address_bits in 32..=32 {
-        for history_bits in 0..x {
-            sims.push(StandardSimulator::new(BranchPredictor::new(GShare::new(tablesize, history_bits, address_bits))));
-        }
+    for history_bits in 0..x {
+        sims.push(StandardSimulator::new(GShare::new(tablesize, history_bits)));
     }
     // Process all configurations in parallel. Accessing various parts of the mmap in parallel
     // doesn't seem to cause any major performance issues, despite advising sequential accesses
