@@ -8,7 +8,7 @@ The simulator and implementations are optimised for performance; single-threaded
 * Always taken
 * Two-bit
 * GShare, with variable history bits
-* Profiled static
+* Profiled static (experimental strategy targeting single-program embedded devices)
 
 ## Crate Structure
 There are two library crates and two executable crates.
